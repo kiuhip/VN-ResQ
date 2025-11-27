@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import alerts
+from app.api.endpoints import alerts, resources
 
 app = FastAPI(title="VN-RESQ API", version="0.1.0")
 
@@ -14,6 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(alerts.router, prefix="/api/alerts", tags=["alerts"])
+app.include_router(resources.router, prefix="/api/resources", tags=["resources"])
 
 @app.get("/")
 def read_root():

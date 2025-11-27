@@ -9,6 +9,10 @@ class AlertBase(BaseModel):
     description: str
     lat: float
     lng: float
+    priority: Optional[str] = "Medium"
+    incident_type: Optional[str] = "General"
+    victim_count: Optional[int] = 0
+    is_verified: Optional[bool] = False
 
 class AlertCreate(AlertBase):
     pass

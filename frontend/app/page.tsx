@@ -3,20 +3,25 @@
 import MapWrapper from '@/components/map';
 import { AlertTriangle, Phone, Video, Users, Activity } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { fetchAlerts, Alert } from '@/lib/api';
+import { fetchAlerts, fetchResources, Alert, Resource } from '@/lib/api';
 
 export default function Home() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
 
   useEffect(() => {
-    const loadAlerts = async () => {
-      const data = await fetchAlerts();
-      setAlerts(data);
+    const loadData = async () => {
+      const [alertsData, resourcesData] = await Promise.all([
+        fetchAlerts(),
+        fetchResources()
+      ]);
+      setAlerts(alertsData);
+      setResources(resourcesData);
     };
-    loadAlerts();
+    loadData();
 
     // Poll every 5 seconds
-    const interval = setInterval(loadAlerts, 5000);
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -28,7 +33,7 @@ export default function Home() {
           { label: 'Active Alerts', value: alerts.length.toString(), icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-500/10' },
           { label: 'Incoming Calls', value: '3', icon: Phone, color: 'text-blue-500', bg: 'bg-blue-500/10' },
           { label: 'Camera Detections', value: '8', icon: Video, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-          { label: 'Rescue Units', value: '24/30', icon: Users, color: 'text-green-500', bg: 'bg-green-500/10' },
+          { label: 'Rescue Units', value: `${resources.filter(r => r.status === 'Available').length}/${resources.length}`, icon: Users, color: 'text-green-500', bg: 'bg-green-500/10' },
         ].map((stat, i) => (
           <div key={i} className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl flex items-center justify-between hover:border-slate-700 transition-colors">
             <div>
