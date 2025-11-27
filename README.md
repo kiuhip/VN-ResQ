@@ -1,56 +1,23 @@
-# VN-RESQ
+1. Start the Backend
+Open a terminal in the backend directory and run:
 
-## Project Structure
 
-- `backend/`: FastAPI backend
-- `frontend/`: Next.js frontend
+# Activate virtual environment
+source venv/bin/activate
+# Run the server
+uvicorn main:app --reload
 
-## Prerequisites
+The API will be available at http://localhost:8000. You can view the interactive API docs at http://localhost:8000/docs to test the new endpoints.
 
-- Python 3.8+
-- Node.js 18+
-- npm or yarn
+2. Start the Frontend
+Open a terminal in the frontend directory and run:
 
-## How to Run
+npm run dev
 
-### Backend
+The application will be available at http://localhost:3000.
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-
-2. Create a virtual environment (optional but recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Run the server:
-   ```bash
-   uvicorn main:app --reload
-   ```
-   The API will be available at `http://localhost:8000`.
-
-### Frontend
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-   The application will be available at `http://localhost:3000`.
+3. Verify Features
+Dashboard: Check that "Rescue Units" shows a count (e.g., "2/3").
+Analytics: Navigate to /analytics and verify the charts are displayed.
+Settings: Navigate to /settings and verify the configuration options.
+Alerts: Check that alerts now have more details (if new alerts are created via API).
