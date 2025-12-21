@@ -1,3 +1,10 @@
 fastapi
 uvicorn
 pydantic
+sqlalchemy
+openai
+python-multipart
+pandas
+requests
+python-dotenv
+pydantic-settings
