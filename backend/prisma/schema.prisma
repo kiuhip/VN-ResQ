@@ -1,0 +1,46 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Incident {
+  id            String   @id @default(uuid())
+  source        String   // form, hotline, messenger, csv
+  locationText  String
+  latitude      Float?
+  longitude     Float?
+  peopleCount   Int      @default(1)
+  urgency       String   // low, medium, high, critical
+  incidentType  String
+  status        String   @default("open")
+  description   String?
+  createdAt     DateTime @default(now())
+
+  assignments   Assignment[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String
+  type      String   // private, state
+  status    String   // idle, busy
+  latitude  Float
+  longitude Float
+  
+  assignments Assignment[]
+}
+
+model Assignment {
+  id          String   @id @default(uuid())
+  incidentId  String
+  teamId      String
+  status      String   // assigned, en-route, on-site, resolved
+  createdAt   DateTime @default(now())
+  
+  incident    Incident @relation(fields: [incidentId], references: [id])
+  team        Team     @relation(fields: [teamId], references: [id])
+}
