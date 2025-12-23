@@ -1,9 +1,8 @@
 import { Router } from 'express';
+import { dispatchController } from '../controllers/dispatch.controller';
 
 const router = Router();
 
-router.get('/', (req, res) => {
-    res.json({ message: 'Dispatch API not implemented' });
-});
+router.post('/', dispatchController.dispatch.bind(dispatchController));
 
 export const dispatchRoutes = router;

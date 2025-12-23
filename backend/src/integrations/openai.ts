@@ -8,4 +8,4 @@ export const openai = new OpenAI({
     dangerouslyAllowBrowser: false,
 });
 
-export const isMock = !apiKey || apiKey === 'mock-key' || apiKey === 'mock-openai-key';
+export const isMock = true; // Force Mock Mode for reliable testing

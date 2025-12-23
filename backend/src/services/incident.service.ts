@@ -6,10 +6,10 @@ const prisma = new PrismaClient();
 export class IncidentService {
 
     async createFromText(source: string, text: string) {
-        // 1. Extract info via AI
+        // 1. Extract info via AI (including GPS coordinates if available)
         const extraction = await aiService.extractInfoFromText(text);
 
-        // 2. Create record
+        // 2. Create record with coordinates from AI
         const incident = await prisma.incident.create({
             data: {
                 source,
@@ -19,8 +19,8 @@ export class IncidentService {
                 urgency: extraction.urgency,
                 description: extraction.description,
                 status: 'open',
-                // Latitude/Longitude would need Geocoding service.
-                // We'll leave them null for now or implement geocoding later.
+                latitude: extraction.latitude,   // From AI extraction
+                longitude: extraction.longitude, // From AI extraction
             }
         });
 
@@ -30,14 +30,26 @@ export class IncidentService {
     async getAll() {
         return prisma.incident.findMany({
             orderBy: { createdAt: 'desc' },
-            include: { assignments: true }
+            include: {
+                assignments: {
+                    include: {
+                        team: true
+                    }
+                }
+            }
         });
     }
 
     async getById(id: string) {
         return prisma.incident.findUnique({
             where: { id },
-            include: { assignments: true }
+            include: {
+                assignments: {
+                    include: {
+                        team: true
+                    }
+                }
+            }
         });
     }
 }
