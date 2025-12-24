@@ -43,6 +43,7 @@ model Assignment {
   status      String   // assigned, en-route, on-site, resolved
   route       String?  // JSON string of [lat, lng] waypoints
   progressIndex Int    @default(0)
+  etaSeconds  Int?     // Estimated travel time in seconds
   createdAt   DateTime @default(now())
   
   incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)

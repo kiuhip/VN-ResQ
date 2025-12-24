@@ -85,7 +85,9 @@ export class DispatchService {
         // 4. Phân công
         const result = await prisma.$transaction(async (tx) => {
             // 5. Fetch Route from OSRM
+            // 5. Fetch Route from OSRM
             let routeData = null;
+            let eta = null;
             try {
                 const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${bestTeam.longitude},${bestTeam.latitude};${targetLng},${targetLat}?overview=full&geometries=geojson`;
                 console.log("🗺️ Fetching Route:", osrmUrl);
@@ -95,12 +97,13 @@ export class DispatchService {
 
                 if (routeRes.data.routes && routeRes.data.routes.length > 0) {
                     const coordinates = routeRes.data.routes[0].geometry.coordinates; // [[lng, lat], ...]
+                    const duration = routeRes.data.routes[0].duration; // seconds
+
                     // OSRM returns [lng, lat], we need to store it. 
-                    // Swapping to [lat, lng] for easier use? No, keep as is, handle mostly in Sim.
-                    // Actually, Simulation expects [lat, lng] or we handle the swap there.
-                    // Let's store raw OSRM [lng, lat] for simplicity.
                     routeData = JSON.stringify(coordinates);
-                    console.log(`✅ Route found: ${coordinates.length} waypoints`);
+                    eta = Math.round(duration);
+
+                    console.log(`✅ Route found: ${coordinates.length} pts, ETA: ${Math.round(duration / 60)}m`);
                 }
             } catch (e: any) {
                 console.error("⚠️ OSRM Route Failed (Falling back to straight line):", e.message);
@@ -112,7 +115,8 @@ export class DispatchService {
                     teamId: bestTeam.id,
                     status: 'assigned',
                     route: routeData,
-                    progressIndex: 0
+                    progressIndex: 0,
+                    etaSeconds: eta
                 } as any
             });
 

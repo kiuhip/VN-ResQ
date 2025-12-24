@@ -16,7 +16,8 @@ interface Incident {
         id: string;
         team: {
             name: string;
-        }
+        };
+        etaSeconds?: number;
     }[];
 }
 
@@ -37,7 +38,9 @@ const IncidentCard = ({ incident, onDispatch, onDelete }: { incident: Incident; 
         critical: 'bg-red-500/20 text-red-500 border-red-500/50 animate-pulse',
     };
 
-    const assignedTeam = incident.assignments?.[0]?.team?.name || null;
+    const assignment = incident.assignments?.[0];
+    const assignedTeam = assignment?.team?.name || null;
+    const etaMins = assignment?.etaSeconds ? Math.ceil(assignment.etaSeconds / 60) : null;
 
     return (
         <div className={`relative p-4 rounded-lg border mb-3 backdrop-blur-sm ${urgencyColors[incident.urgency] || 'bg-gray-800'}`}>
@@ -73,7 +76,9 @@ const IncidentCard = ({ incident, onDispatch, onDelete }: { incident: Incident; 
             <div className="mt-3 flex gap-2">
                 {assignedTeam ? (
                     <div className="bg-blue-900/50 text-blue-200 text-xs px-3 py-1.5 rounded-md flex items-center gap-1 border border-blue-500/30 w-full">
-                        <CheckCircle size={12} /> Assigned: {assignedTeam}
+                        <CheckCircle size={12} />
+                        <span>Assigned: {assignedTeam}</span>
+                        {etaMins && <span className="ml-auto font-bold text-blue-100">~{etaMins} mins</span>}
                     </div>
                 ) : (
                     <button
