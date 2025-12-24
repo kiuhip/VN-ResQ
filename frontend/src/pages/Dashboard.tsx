@@ -20,7 +20,7 @@ interface Incident {
     }[];
 }
 
-const IncidentCard = ({ incident, onDispatch }: { incident: Incident; onDispatch: (id: string) => void }) => {
+const IncidentCard = ({ incident, onDispatch, onDelete }: { incident: Incident; onDispatch: (id: string) => void; onDelete: (id: string) => void }) => {
     const urgencyColors: Record<string, string> = {
         low: 'bg-green-500/20 text-green-400 border-green-500/50',
         medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
@@ -31,8 +31,16 @@ const IncidentCard = ({ incident, onDispatch }: { incident: Incident; onDispatch
     const assignedTeam = incident.assignments?.[0]?.team?.name || null;
 
     return (
-        <div className={`p-4 rounded-lg border mb-3 backdrop-blur-sm ${urgencyColors[incident.urgency] || 'bg-gray-800'}`}>
-            <div className="flex justify-between items-start">
+        <div className={`relative p-4 rounded-lg border mb-3 backdrop-blur-sm ${urgencyColors[incident.urgency] || 'bg-gray-800'}`}>
+            <button
+                onClick={(e) => { e.stopPropagation(); onDelete(incident.id); }}
+                className="absolute top-2 right-2 text-white/50 hover:text-white bg-black/20 hover:bg-black/40 rounded-full p-1 transition-colors z-20"
+                title="Resolve/Delete Incident"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+            </button>
+
+            <div className="flex justify-between items-start pr-6">
                 <h3 className="font-bold flex items-center gap-2 truncate pr-2" title={incident.locationText}>
                     <Siren size={16} className="flex-shrink-0" /> {incident.locationText}
                 </h3>
@@ -102,6 +110,17 @@ export const Dashboard = () => {
         }
     };
 
+    const handleDelete = async (id: string) => {
+        if (!confirm("Confirm resolve/delete this incident?")) return;
+        try {
+            await axios.delete(`http://localhost:3000/api/incidents/${id}`);
+            // Optimistic update
+            setIncidents(prev => prev.filter(i => i.id !== id));
+        } catch (error: any) {
+            alert(`❌ Delete Failed: ${error.response?.data?.error || error.message}`);
+        }
+    };
+
     // Only show markers for incidents with real GPS coordinates
     const markers = [
         // Incidents with valid coordinates only (no fake coordinates)
@@ -140,7 +159,7 @@ export const Dashboard = () => {
                         <p className="text-sm text-gray-500 text-center py-10">No active incidents</p>
                     ) : (
                         incidents.map(inc => (
-                            <IncidentCard key={inc.id} incident={inc} onDispatch={handleDispatch} />
+                            <IncidentCard key={inc.id} incident={inc} onDispatch={handleDispatch} onDelete={handleDelete} />
                         ))
                     )}
                 </div>

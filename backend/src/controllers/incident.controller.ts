@@ -46,6 +46,16 @@ export class IncidentController {
             streamService.removeClient(clientId);
         });
     }
+
+    async delete(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            await incidentService.delete(id);
+            res.json({ message: 'Incident resolved/deleted successfully' });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to delete incident' });
+        }
+    }
 }
 
 export const incidentController = new IncidentController();

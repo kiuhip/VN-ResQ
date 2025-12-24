@@ -43,6 +43,6 @@ model Assignment {
   status      String   // assigned, en-route, on-site, resolved
   createdAt   DateTime @default(now())
   
-  incident    Incident @relation(fields: [incidentId], references: [id])
+  incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
   team        Team     @relation(fields: [teamId], references: [id])
 }

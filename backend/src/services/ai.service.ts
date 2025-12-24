@@ -4,6 +4,7 @@ import { z } from 'zod';
 // Schema Validation (giữ nguyên để tham khảo type)
 const IncidentExtractionSchema = z.object({
     location_text: z.string(),
+    searchable_address: z.string().optional(),
     incident_type: z.string(),
     people_count: z.number().optional().default(1),
     urgency: z.enum(['low', 'medium', 'high', 'critical']),
@@ -19,49 +20,26 @@ export class AIService {
     async extractInfoFromText(text: string): Promise<IncidentExtraction> {
         console.log("🤖 Gemini Processing:", text);
 
-        if (isMock) {
-            console.log('⚠️ Warning: Using Mock Mode (No Gemini Key found)');
-            const lowerText = text.toLowerCase();
-
-            // ✨ SMART MOCKING
-            if (lowerText.includes('an sơn') || lowerText.includes('an son')) {
-                return { location_text: 'Số 7, Ngách 56, Ngõ An Sơn, Hà Nội', incident_type: 'Fire', people_count: 3, urgency: 'critical', description: text, latitude: 21.0013, longitude: 105.8454 };
-            }
-            if (lowerText.includes('trần duy hưng') || lowerText.includes('tran duy hung')) {
-                return { location_text: 'Số 10, Đường Trần Duy Hưng, Cầu Giấy, Hà Nội', incident_type: 'Fire', people_count: 5, urgency: 'critical', description: text, latitude: 21.0076, longitude: 105.7958 };
-            }
-            if (lowerText.includes('giải phóng') || lowerText.includes('giai phong')) {
-                return { location_text: 'Đường Giải Phóng, Hai Bà Trưng, Hà Nội', incident_type: 'Fire', people_count: 5, urgency: 'high', description: text, latitude: 21.0025, longitude: 105.8412 };
-            }
-            if (lowerText.includes('hoàn kiếm') || lowerText.includes('hoan kiem')) {
-                return { location_text: 'Quận Hoàn Kiếm, Hà Nội', incident_type: 'Rescue', people_count: 2, urgency: 'medium', description: text, latitude: 21.0285, longitude: 105.8542 };
-            }
-            if (lowerText.includes('cầu giấy') || lowerText.includes('cau giay')) {
-                return { location_text: 'Quận Cầu Giấy, Hà Nội', incident_type: 'Accident', people_count: 1, urgency: 'high', description: text, latitude: 21.0350, longitude: 105.7980 };
-            }
-            return {
-                location_text: 'Detected Location ' + text.substring(0, 10),
-                incident_type: 'Unknown',
-                people_count: 1,
-                urgency: 'medium',
-                description: text,
-                latitude: undefined,
-                longitude: undefined,
-            };
-        }
+        // REMOVED MOCK LOGIC for Real-World Accuracy
+        // if (isMock) { ... }
 
         try {
             const prompt = `Extract emergency details from this TEXT: "${text}"
+            Target Context: Vietnam (Hanoi preferred).
+            
+            Strict Rules:
+            1. 'location_text' MUST be the exact address found in text. If none, return "Unknown".
+            2. 'searchable_address' should be a clean string for Geocoding API (e.g. "1 Dai Co Viet, Hai Ba Trung, Hanoi").
+            3. Do NOT invent coordinates. Set latitude/longitude to null/undefined unless explicitly stated in text (extremely rare).
+            
             Return ONLY JSON:
             {
-              "location_text": "specific address",
-              "searchable_address": "clean address for GPS",
+              "location_text": "raw address or Unknown",
+              "searchable_address": "clean address for geocoding",
               "incident_type": "Fire/Flood/Accident/Health/Rescue/Other",
-              "people_count": number,
+              "people_count": number (default 1),
               "urgency": "low/medium/high/critical",
-              "description": "short summary",
-              "latitude": number or null,
-              "longitude": number or null
+              "description": "short summary"
             }`;
 
             const result = await geminiModel.generateContent(prompt);
@@ -78,121 +56,74 @@ export class AIService {
                 people_count: typeof raw.people_count === 'number' ? raw.people_count : 1,
                 urgency: raw.urgency || "medium",
                 description: raw.description || text,
-                latitude: typeof raw.latitude === 'number' ? raw.latitude : undefined,
-                longitude: typeof raw.longitude === 'number' ? raw.longitude : undefined,
+                // Do NOT trust AI coordinates unless specific, rely on Geocoding Service later
+                latitude: undefined,
+                longitude: undefined,
             } as any;
 
         } catch (error: any) {
-            console.error("❌ Gemini API ERROR DETAILS:", error?.message || error);
-            if (error?.response) {
-                console.error("📦 Gemini Error Response:", JSON.stringify(error.response, null, 2));
-            }
+            console.error("❌ Gemini API ERROR:", error?.message || error);
+
+            // Fallback: Smart Regex Extraction
+            let extractedLocation = "Unknown";
             const lowerText = text.toLowerCase();
 
-            // ✨ SMART MOCKING: Detect common Hanoi locations
-            if (lowerText.includes('giải phóng') || lowerText.includes('giai phong')) {
-                return {
-                    location_text: 'Đường Giải Phóng, Hai Bà Trưng, Hà Nội',
-                    incident_type: 'Fire',
-                    people_count: 5,
-                    urgency: 'high',
-                    description: text,
-                    latitude: 21.0025,
-                    longitude: 105.8412
-                };
+            // Patterns: "tại ...", "ở ...", "số ...", "ngõ ..."
+            // We want to capture the phrase after these prepositions.
+            const sent = text.replace(/[\n\r]/g, " "); // flatten
+
+            // Try to match "ở [Address]" or "tại [Address]" until a punctuation
+            const match = sent.match(/(?:tại|ở|địa chỉ|khu vực|số|ngõ)\s+([^,.;!?]+)/i);
+
+            if (match) {
+                // match[0] is like "ở ngõ 48 phố tạ quang bửu"
+                // match[1] is "ngõ 48 phố tạ quang bửu"
+
+                // However, sometimes match[1] checks stop at space if not careful, but [^,.;!?]+ grabs until punctuation
+                extractedLocation = match[0].replace(/^(tại|ở|địa chỉ|khu vực)\s+/i, '').trim();
+
+                // If it's too short (e.g. "ở đâu"), ignore
+                if (extractedLocation.length < 3) extractedLocation = "Unknown";
+            } else {
+                // Fallback for just "ngõ 48..." without "ở"
+                if (text.length < 100 && (text.includes("ngõ") || text.includes("phố") || text.includes("đường"))) {
+                    extractedLocation = text;
+                }
             }
 
-            if (lowerText.includes('hoàn kiếm') || lowerText.includes('hoan kiem') || lowerText.includes('hồ gươm')) {
-                return {
-                    location_text: 'Quận Hoàn Kiếm, Hà Nội',
-                    incident_type: 'Rescue',
-                    people_count: 2,
-                    urgency: 'medium',
-                    description: text,
-                    latitude: 21.0285,
-                    longitude: 105.8542
-                };
-            }
+            console.log("⚠️ Using Regex Fallback. Extracted:", extractedLocation);
 
-            if (lowerText.includes('cầu giấy') || lowerText.includes('cau giay')) {
-                return {
-                    location_text: 'Quận Cầu Giấy, Hà Nội',
-                    incident_type: 'Accident',
-                    people_count: 1,
-                    urgency: 'high',
-                    description: text,
-                    latitude: 21.0350,
-                    longitude: 105.7980
-                };
-            }
-
-            if (lowerText.includes('ngã tư sở') || lowerText.includes('nga tu so')) {
-                return {
-                    location_text: 'Ngã tư Sở, Đống Đa, Hà Nội',
-                    incident_type: 'Traffic',
-                    people_count: 50,
-                    urgency: 'high',
-                    description: text,
-                    latitude: 21.0041,
-                    longitude: 105.8160
-                };
-            }
-
-            if (lowerText.includes('chợ đồng xuân') || lowerText.includes('cho dong xuan')) {
-                return {
-                    location_text: 'Chợ Đồng Xuân, Hoàn Kiếm, Hà Nội',
-                    incident_type: 'Fire',
-                    people_count: 100,
-                    urgency: 'critical',
-                    description: text,
-                    latitude: 21.0365,
-                    longitude: 105.8495
-                };
-            }
-
-            // Fallback: Try to use the Text as Location if short, or generic Hanoi
             return {
-                location_text: text.length < 50 ? text : "Hanoi Area (Exact location unclear)",
+                location_text: extractedLocation,
+                searchable_address: extractedLocation !== "Unknown" ? extractedLocation : "Hanoi, Vietnam",
                 incident_type: "General Report",
                 people_count: 1,
                 urgency: "medium",
                 description: text,
-                latitude: 21.0285 + (Math.random() * 0.01 - 0.005), // Random jitter around Hanoi Center
-                longitude: 105.8542 + (Math.random() * 0.01 - 0.005),
+                latitude: undefined,
+                longitude: undefined,
             };
         }
     }
 
     async analyzeAudio(audioBuffer: Buffer, mimeType: string): Promise<IncidentExtraction> {
         console.log("🔊 Gemini Listening to Audio...");
-        
-        if (isMock) {
-             console.log("⚠️ Using Mock Audio Analysis");
-             return {
-                 location_text: "Khu tập thể Thanh Xuân Bắc, Hà Nội",
-                 incident_type: "Flood",
-                 people_count: 5,
-                 urgency: "critical",
-                 description: "[Voice Transcript]: Water rising fast at ground floor, 5 people trapped including elderly.",
-                 latitude: 20.9950,
-                 longitude: 105.7950
-             };
-        }
 
         try {
             const prompt = `
-            Listen to this emergency call. 
-            1. Transcribe the speech to Vietnamese text.
-            2. Extract key details into JSON:
-               - location_text
-               - incident_type
-               - people_count
-               - urgency
-               - description (The full transcript)
-               - latitude (estimate for Vietnam/Hanoi, critical for mapping)
-               - longitude (estimate)
+            Listen to this emergency call (Vietnamese). 
+            1. Transcribe the speech to text.
+            2. Extract key details into JSON.
+            3. STRICTLY NO RANDOM COORDINATES.
             
-            Return ONLY raw JSON.
+            Return JSON:
+            {
+                "location_text": "...",
+                "incident_type": "...",
+                "people_count": ...,
+                "urgency": "...",
+                "description": "Full Transcript"
+            }
             `;
 
             // Convert Buffer to Base64 for Inline Data
@@ -210,12 +141,17 @@ export class AIService {
 
             const response = await result.response;
             let textResponse = response.text();
-            
+
             // Clean JSON
             textResponse = textResponse.replace(/^```json/g, '').replace(/^```/g, '').trim();
             console.log("📦 Gemini Audio Analysis:", textResponse);
 
-            return JSON.parse(textResponse);
+            const raw = JSON.parse(textResponse);
+            return {
+                ...raw,
+                latitude: undefined, // Force Geocoding Service to find real coords
+                longitude: undefined
+            };
 
         } catch (error) {
             console.error("❌ Gemini Audio Failed:", error);

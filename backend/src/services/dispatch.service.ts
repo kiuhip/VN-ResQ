@@ -52,31 +52,39 @@ export class DispatchService {
 
         for (const team of availableTeams) {
             const distance = this.calculateDistance(targetLat, targetLng, team.latitude, team.longitude);
-            const distanceFactor = Math.max(0, 10 - distance); // Điểm cao nếu gần (trong bán kính 10km)
-            
+            const distanceFactor = Math.max(0, 20 - distance); // Updated: Wider radius (20km score range)
+
             let capabilityScore = 0;
             const teamCaps = ((team as any).capabilities || "").split(',');
+            let logReasons = [];
 
             // Logic tính điểm ưu tiên:
             // Nếu là ngập lụt -> ưu tiên đội có xuồng (boat)
-            const isFlood = incident.incidentType === 'flooding' || 
-                           incident.description?.toLowerCase().includes('ngập') ||
-                           incident.description?.toLowerCase().includes('lũ') ||
-                           incident.description?.toLowerCase().includes('xuồng') ||
-                           incident.description?.toLowerCase().includes('thuyền');
+            const isFlood = incident.incidentType === 'flooding' ||
+                incident.description?.toLowerCase().includes('ngập') ||
+                incident.description?.toLowerCase().includes('lũ') ||
+                incident.description?.toLowerCase().includes('xuồng') ||
+                incident.description?.toLowerCase().includes('thuyền');
 
             if (isFlood) {
-                if (teamCaps.includes('boat')) capabilityScore += 25; // Tăng trọng số ưu tiên
+                if (teamCaps.includes('boat')) {
+                    capabilityScore += 25; // Tăng trọng số ưu tiên
+                    logReasons.push("Has Boat (+25)");
+                }
             }
 
             // Nếu có người bị thương -> ưu tiên đội có y tế (medical)
-            if (incident.description?.toLowerCase().includes('thương') || 
+            if (incident.description?.toLowerCase().includes('thương') ||
                 incident.description?.toLowerCase().includes('nạn') ||
                 incident.description?.toLowerCase().includes('máu')) {
-                if (teamCaps.includes('medical')) capabilityScore += 15;
+                if (teamCaps.includes('medical')) {
+                    capabilityScore += 15;
+                    logReasons.push("Has Medical (+15)");
+                }
             }
 
             const totalScore = distanceFactor + capabilityScore;
+            console.log(`Team ${team.name}: Dist=${distance.toFixed(1)}km (Score ${distanceFactor.toFixed(1)}) | Caps=${capabilityScore} [${logReasons.join(', ')}] | Total=${totalScore.toFixed(1)}`);
 
             if (totalScore > bestScore) {
                 bestScore = totalScore;

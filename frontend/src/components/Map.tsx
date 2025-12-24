@@ -16,7 +16,12 @@ const createCustomIcon = (color: string) => {
         <div style={{
             color: color,
             filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))',
-            transform: 'translate(-50%, -100%)' // Center bottom anchor
+            // transform: 'translate(-50%, -100%)' <--- REMOVED: iconAnchor handles this
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: '100%',
+            height: '100%'
         }}>
             <MapPin size={32} fill="currentColor" />
         </div>
@@ -26,7 +31,7 @@ const createCustomIcon = (color: string) => {
         html: iconHtml,
         className: 'custom-marker-icon', // No default styles
         iconSize: [32, 32],
-        iconAnchor: [16, 32], // Tip usage
+        iconAnchor: [16, 32], // Tip usage: 16 (center x), 32 (bottom y)
         popupAnchor: [0, -36]
     });
 };

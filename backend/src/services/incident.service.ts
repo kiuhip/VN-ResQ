@@ -26,6 +26,17 @@ export class IncidentService {
                 lng = geo.lon;
                 // Don't overwrite locationText unless it's empty, 
                 // because we usually want to keep the specific house number/ngõ found by AI
+            } else {
+                console.log("⚠️ Geocoding failed for:", addressToSearch);
+            }
+        }
+
+        // If still no GPS, mark it clearly
+        if (!lat || !lng) {
+            if (finalLocation === 'Unknown') {
+                finalLocation = "⚠️ Unknown Location (Manual Update Required)";
+            } else {
+                finalLocation = `[NO GPS] ${finalLocation}`;
             }
         }
 
@@ -73,6 +84,25 @@ export class IncidentService {
                     }
                 }
             }
+        });
+    }
+
+    async delete(id: string) {
+        // 1. Release Team if assigned
+        const assignments = await prisma.assignment.findMany({
+            where: { incidentId: id, status: { not: 'resolved' } }
+        });
+
+        for (const assignment of assignments) {
+            await prisma.team.update({
+                where: { id: assignment.teamId },
+                data: { status: 'idle' }
+            });
+        }
+        
+        // 2. Delete Incident (Cascade will delete assignments)
+        return prisma.incident.delete({
+            where: { id }
         });
     }
 }
