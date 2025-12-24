@@ -33,8 +33,8 @@ const IncidentCard = ({ incident, onDispatch }: { incident: Incident; onDispatch
     return (
         <div className={`p-4 rounded-lg border mb-3 backdrop-blur-sm ${urgencyColors[incident.urgency] || 'bg-gray-800'}`}>
             <div className="flex justify-between items-start">
-                <h3 className="font-bold flex items-center gap-2">
-                    <Siren size={16} /> {incident.locationText}
+                <h3 className="font-bold flex items-center gap-2 truncate pr-2" title={incident.locationText}>
+                    <Siren size={16} className="flex-shrink-0" /> {incident.locationText}
                 </h3>
                 <span className="text-xs uppercase font-bold tracking-wider opacity-80">{incident.urgency}</span>
             </div>

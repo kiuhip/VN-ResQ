@@ -24,12 +24,14 @@ model Incident {
 }
 
 model Team {
-  id        String   @id @default(uuid())
-  name      String
-  type      String   // private, state
-  status    String   // idle, busy
-  latitude  Float
-  longitude Float
+  id           String   @id @default(uuid())
+  name         String
+  type         String   // private, state
+  status       String   // idle, busy
+  capabilities String   // Comma separated list: boat, medical, rescue, food
+  currentZone  String?  // e.g. "Cầu Giấy", "Đống Đa"
+  latitude     Float
+  longitude    Float
   
   assignments Assignment[]
 }

@@ -29,62 +29,84 @@ export class DispatchService {
             where: { status: 'idle' }
         });
 
-        // 🚨 AUTO-SEED: Nếu chưa có đội nào (lần đầu chạy), tự tạo 3 đội mẫu
+        // 🚨 AUTO-SEED: Cập nhật seeding với năng lực (capabilities)
         if (availableTeams.length === 0) {
-            console.log("No teams found. Seeding mock teams...");
+            console.log("No teams found. Seeding mock teams with capabilities...");
             await prisma.team.createMany({
                 data: [
-                    { name: 'Đội Cứu Hộ Alpha (Hoàn Kiếm)', type: 'state', status: 'idle', latitude: 21.0285, longitude: 105.8542 },
-                    { name: 'Đội Cứu Hộ Bravo (Đống Đa)', type: 'state', status: 'idle', latitude: 21.0080, longitude: 105.8200 },
-                    { name: 'Đội Tình Nguyện Charlie (Hai Bà Trưng)', type: 'private', status: 'idle', latitude: 21.0050, longitude: 105.8500 }
+                    { name: 'Đội Phản Ứng Nhanh (Hoàn Kiếm)', type: 'state', status: 'idle', latitude: 21.0285, longitude: 105.8542, capabilities: 'medical,rescue' } as any,
+                    { name: 'Đội Xuồng Máy Cứu Hộ (Sông Hồng)', type: 'state', status: 'idle', latitude: 21.0400, longitude: 105.8600, capabilities: 'boat,rescue,heavy_lifting' } as any,
+                    { name: 'Đội Tình Nguyện Tiếp Tế (Đống Đa)', type: 'private', status: 'idle', latitude: 21.0080, longitude: 105.8200, capabilities: 'food,medical' } as any,
+                    { name: 'Đội Cứu Hộ Đặc Nhiệm (Cầu Giấy)', type: 'state', status: 'idle', latitude: 21.0362, longitude: 105.7906, capabilities: 'boat,medical,rescue' } as any
                 ]
             });
-            // Query lại sau khi tạo
             availableTeams = await prisma.team.findMany({ where: { status: 'idle' } });
         }
 
-        // 3. Tìm đội gần nhất
-        let nearestTeam = null;
-        let minDistance = Infinity;
+        // 3. Tìm đội phù hợp nhất (Capability-Aware)
+        let bestTeam = null;
+        let bestScore = -Infinity;
 
-        // Nếu incident chưa có tọa độ, chọn đội đầu tiên (hoặc random)
-        const targetLat = incident.latitude || 21.0285; // Mặc định về Hoàn Kiếm nếu null
+        const targetLat = incident.latitude || 21.0285;
         const targetLng = incident.longitude || 105.8542;
 
         for (const team of availableTeams) {
             const distance = this.calculateDistance(targetLat, targetLng, team.latitude, team.longitude);
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestTeam = team;
+            const distanceFactor = Math.max(0, 10 - distance); // Điểm cao nếu gần (trong bán kính 10km)
+            
+            let capabilityScore = 0;
+            const teamCaps = ((team as any).capabilities || "").split(',');
+
+            // Logic tính điểm ưu tiên:
+            // Nếu là ngập lụt -> ưu tiên đội có xuồng (boat)
+            const isFlood = incident.incidentType === 'flooding' || 
+                           incident.description?.toLowerCase().includes('ngập') ||
+                           incident.description?.toLowerCase().includes('lũ') ||
+                           incident.description?.toLowerCase().includes('xuồng') ||
+                           incident.description?.toLowerCase().includes('thuyền');
+
+            if (isFlood) {
+                if (teamCaps.includes('boat')) capabilityScore += 25; // Tăng trọng số ưu tiên
+            }
+
+            // Nếu có người bị thương -> ưu tiên đội có y tế (medical)
+            if (incident.description?.toLowerCase().includes('thương') || 
+                incident.description?.toLowerCase().includes('nạn') ||
+                incident.description?.toLowerCase().includes('máu')) {
+                if (teamCaps.includes('medical')) capabilityScore += 15;
+            }
+
+            const totalScore = distanceFactor + capabilityScore;
+
+            if (totalScore > bestScore) {
+                bestScore = totalScore;
+                bestTeam = team;
             }
         }
 
-        if (!nearestTeam) throw new Error("No available teams found");
+        if (!bestTeam) throw new Error("No suitable teams found");
 
-        // 4. Phân công (Transaction để đảm bảo tính nhất quán)
+        // 4. Phân công
         const result = await prisma.$transaction(async (tx) => {
-            // Tạo Assignment
             const assignment = await tx.assignment.create({
                 data: {
                     incidentId: incident.id,
-                    teamId: nearestTeam.id,
+                    teamId: bestTeam.id,
                     status: 'assigned'
                 }
             });
 
-            // Update Team status -> busy
             await tx.team.update({
-                where: { id: nearestTeam.id },
+                where: { id: bestTeam.id },
                 data: { status: 'busy' }
             });
 
-            // Update Incident status -> assigned
             await tx.incident.update({
                 where: { id: incident.id },
                 data: { status: 'assigned' }
             });
 
-            return { assignment, team: nearestTeam, distance: minDistance };
+            return { assignment, team: bestTeam, score: bestScore };
         });
 
         return result;

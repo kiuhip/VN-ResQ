@@ -1,90 +1,104 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-import { AlertCircle, CheckCircle, Send, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { Phone, Users, Database, LayoutGrid, MapPin, Globe } from 'lucide-react';
+import { HotlinePanel } from '../components/intake/HotlinePanel';
+import { FanpagePanel } from '../components/intake/FanpagePanel';
+import { SDKPanel } from '../components/intake/SDKPanel';
 
 export const IncidentForm = () => {
-    const [desc, setDesc] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState<string | null>(null);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!desc.trim()) return;
-
-        setLoading(true);
-        setSuccess(null);
-        try {
-            await axios.post('http://localhost:3000/api/incidents', {
-                source: 'web-form',
-                text: desc
-            });
-            setSuccess('Incident reported successfully. Help is on the way!');
-            setDesc('');
-        } catch (err) {
-            alert('Failed to report incident. Please call hotline.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [activeTab, setActiveTab] = useState<'hotline' | 'fanpage' | 'sdk'>('hotline');
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
-            {/* Background gradients */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-                <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-red-900/20 blur-3xl rounded-full"></div>
-                <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-blue-900/20 blur-3xl rounded-full"></div>
+        <div className="min-h-screen bg-[#0B0E14] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
+            {/* Ambient Background */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-blue-900/10 blur-[120px] rounded-full"></div>
+                <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-red-900/10 blur-[120px] rounded-full"></div>
             </div>
 
-            <div className="max-w-md w-full bg-gray-800/50 backdrop-blur-xl border border-gray-700 p-8 rounded-2xl shadow-2xl z-10">
-                <div className="text-center mb-8">
-                    <div className="mx-auto w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
-                        <AlertCircle className="text-red-500" size={32} />
+            <div className="max-w-4xl w-full bg-gray-900/60 backdrop-blur-xl border border-gray-800 rounded-2xl shadow-2xl z-10 flex overflow-hidden">
+                {/* Sidebar Navigation */}
+                <div className="w-64 bg-gray-900/80 border-r border-gray-800 p-6 flex flex-col">
+                    <div className="mb-8 flex items-center gap-2 text-blue-500 font-bold text-xl tracking-tight">
+                        <Globe size={24} /> VN-RESQ
                     </div>
-                    <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-orange-400">
-                        Emergency Report
-                    </h1>
-                    <p className="text-gray-400 text-sm mt-2">
-                        Describe the situation accurately. AI will analyze priority.
-                    </p>
-                </div>
 
-                {success ? (
-                    <div className="bg-green-500/20 border border-green-500/50 text-green-400 p-4 rounded-lg flex items-center gap-3 mb-6">
-                        <CheckCircle size={20} />
-                        <p className="text-sm">{success}</p>
-                        <button onClick={() => setSuccess(null)} className="ml-auto text-xs underline">New Report</button>
-                    </div>
-                ) : (
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div>
-                            <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Situation Description</label>
-                            <textarea
-                                value={desc}
-                                onChange={(e) => setDesc(e.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all resize-none h-32"
-                                placeholder="e.g. Fire at 123 Main St, 2 people trapped..."
-                                required
-                            />
-                        </div>
+                    <nav className="space-y-2 flex-1">
+                        <button
+                            onClick={() => setActiveTab('hotline')}
+                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${activeTab === 'hotline' 
+                                ? 'bg-red-500/10 text-red-500 border border-red-500/20 shadow-lg shadow-red-900/10' 
+                                : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
+                        >
+                            <Phone size={18} />
+                            <span className="font-medium text-sm">Hotline Mode</span>
+                        </button>
 
                         <button
-                            type="submit"
-                            disabled={loading}
-                            className={`w-full py-3 rounded-lg font-bold flex items-center justify-center gap-2 transition-all transform active:scale-95 ${loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 shadow-lg shadow-red-500/30'
-                                }`}
+                            onClick={() => setActiveTab('fanpage')}
+                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${activeTab === 'fanpage' 
+                                ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20 shadow-lg shadow-blue-900/10' 
+                                : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
                         >
-                            {loading ? 'Analyzing...' : <><Send size={18} /> Send Report</>}
+                            <Users size={18} />
+                            <span className="font-medium text-sm">Fanpage Inbox</span>
                         </button>
-                    </form>
-                )}
 
-                <div className="mt-8 pt-6 border-t border-gray-700/50 flex justify-between text-xs text-gray-500">
-                    <span className="flex items-center gap-1"><MapPin size={10} /> Location Auto-detected</span>
-                    <div className="flex gap-4">
-                        <a href="/dashboard" className="hover:text-red-400 transition-colors">Admin Access</a>
-                        <span>VN-ResQ System v1.0</span>
+                         <button
+                            onClick={() => setActiveTab('sdk')}
+                            className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 transition-all ${activeTab === 'sdk' 
+                                ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20 shadow-lg shadow-purple-900/10' 
+                                : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'}`}
+                        >
+                            <Database size={18} />
+                            <span className="font-medium text-sm">Developer SDK</span>
+                        </button>
+                    </nav>
+
+                    <div className="mt-auto pt-6 border-t border-gray-800">
+                        <a href="/dashboard" className="flex items-center gap-3 text-gray-500 hover:text-white transition-colors group">
+                            <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-gray-700">
+                                <LayoutGrid size={16} />
+                            </div>
+                            <span className="text-xs font-medium">Rescue Dashboard</span>
+                        </a>
                     </div>
                 </div>
+
+                {/* Main Content Area */}
+                <div className="flex-1 p-8 bg-black/20">
+                    <header className="mb-8 flex justify-between items-start">
+                        <div>
+                            <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+                                {activeTab === 'hotline' && 'Emergency Call Center'}
+                                {activeTab === 'fanpage' && 'Social Media Listening'}
+                                {activeTab === 'sdk' && 'Developer Connectivity'}
+                            </h2>
+                            <p className="text-gray-500 text-sm mt-1">
+                                {activeTab === 'hotline' && 'Log incoming distress calls via voice or manual entry.'}
+                                {activeTab === 'fanpage' && 'Monitor and process messages from Facebook/Zalo.'}
+                                {activeTab === 'sdk' && 'Manage API keys and database connections.'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-green-500 bg-green-500/10 px-3 py-1 rounded-full border border-green-500/20">
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                            System Operational
+                        </div>
+                    </header>
+
+                    {/* Dynamic Panel Content */}
+                    <div className="relative min-h-[400px]">
+                        {activeTab === 'hotline' && <HotlinePanel />}
+                        {activeTab === 'fanpage' && <FanpagePanel />}
+                        {activeTab === 'sdk' && <SDKPanel />}
+                    </div>
+                </div>
+            </div>
+             
+             {/* Footer */}
+            <div className="absolute bottom-4 text-[10px] text-gray-600 flex gap-4">
+                <span className="flex items-center gap-1"><MapPin size={10} /> Hanoi, VN</span>
+                <span>•</span>
+                <span>v2.1.0-build.482</span>
             </div>
         </div>
     );
