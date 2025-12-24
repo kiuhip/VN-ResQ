@@ -20,6 +20,15 @@ interface Incident {
     }[];
 }
 
+interface Team {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    status: string; // idle, busy
+    type: string;
+}
+
 const IncidentCard = ({ incident, onDispatch, onDelete }: { incident: Incident; onDispatch: (id: string) => void; onDelete: (id: string) => void }) => {
     const urgencyColors: Record<string, string> = {
         low: 'bg-green-500/20 text-green-400 border-green-500/50',
@@ -81,20 +90,25 @@ const IncidentCard = ({ incident, onDispatch, onDelete }: { incident: Incident; 
 
 export const Dashboard = () => {
     const [incidents, setIncidents] = useState<Incident[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
 
     useEffect(() => {
-        // Poll incidents
-        const fetchIncidents = async () => {
+        // Poll incidents and teams
+        const fetchData = async () => {
             try {
-                const res = await axios.get('http://localhost:3000/api/incidents');
-                setIncidents(res.data);
+                const [resIncidents, resTeams] = await Promise.all([
+                    axios.get('http://localhost:3000/api/incidents'),
+                    axios.get('http://localhost:3000/api/teams')
+                ]);
+                setIncidents(resIncidents.data);
+                setTeams(resTeams.data);
             } catch (e) {
-                console.error("Failed to fetch incidents", e);
+                console.error("Failed to fetch data", e);
             }
         };
 
-        fetchIncidents();
-        const interval = setInterval(fetchIncidents, 5000);
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
         return () => clearInterval(interval);
     }, []);
 
@@ -103,8 +117,12 @@ export const Dashboard = () => {
             const res = await axios.post('http://localhost:3000/api/dispatch', { incidentId: id });
             alert(`✅ Success: ${res.data.message}\nTeam: ${res.data.team.name}\nDistance: ${res.data.distance_km} km`);
             // Refresh data immediately
-            const resIncidents = await axios.get('http://localhost:3000/api/incidents');
+            const [resIncidents, resTeams] = await Promise.all([
+                axios.get('http://localhost:3000/api/incidents'),
+                axios.get('http://localhost:3000/api/teams')
+            ]);
             setIncidents(resIncidents.data);
+            setTeams(resTeams.data);
         } catch (error: any) {
             alert(`❌ Dispatch Failed: ${error.response?.data?.error || error.message}`);
         }
@@ -116,6 +134,9 @@ export const Dashboard = () => {
             await axios.delete(`http://localhost:3000/api/incidents/${id}`);
             // Optimistic update
             setIncidents(prev => prev.filter(i => i.id !== id));
+            // Also refresh teams to free up status
+            const resTeams = await axios.get('http://localhost:3000/api/teams');
+            setTeams(resTeams.data);
         } catch (error: any) {
             alert(`❌ Delete Failed: ${error.response?.data?.error || error.message}`);
         }
@@ -123,19 +144,24 @@ export const Dashboard = () => {
 
     // Only show markers for incidents with real GPS coordinates
     const markers = [
-        // Incidents with valid coordinates only (no fake coordinates)
+        // Incidents
         ...incidents
-            .filter(i => i.latitude != null && i.longitude != null)  // Only incidents with real coords
+            .filter(i => i.latitude != null && i.longitude != null)
             .map(i => ({
                 id: i.id,
                 lat: i.latitude!,
                 lng: i.longitude!,
-                color: '#FBBC04',
+                color: '#FBBC04', // Incident Color (Yellow)
                 title: i.locationText
             })),
-        // Teams (Mock - these are still hardcoded for demo)
-        { id: 't1', lat: 21.03, lng: 105.85, color: '#4285F4', title: 'Team Alpha' },
-        { id: 't2', lat: 21.02, lng: 105.86, color: '#4285F4', title: 'Team Bravo' }
+        // Teams from DB
+        ...teams.map(t => ({
+            id: t.id,
+            lat: t.latitude,
+            lng: t.longitude,
+            color: t.status === 'busy' ? '#9AA0A6' : '#4285F4', // Blue if idle, Grey if busy
+            title: `${t.name} (${t.status})`
+        }))
     ];
 
     return (
@@ -177,7 +203,7 @@ export const Dashboard = () => {
                             <div className="text-[10px] uppercase text-gray-400">Incidents</div>
                         </div>
                         <div>
-                            <div className="text-xl font-bold text-blue-500">2</div>
+                            <div className="text-xl font-bold text-blue-500">{teams.length}</div>
                             <div className="text-[10px] uppercase text-gray-400">Teams Active</div>
                         </div>
                     </div>

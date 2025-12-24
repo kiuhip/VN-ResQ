@@ -41,8 +41,10 @@ model Assignment {
   incidentId  String
   teamId      String
   status      String   // assigned, en-route, on-site, resolved
+  route       String?  // JSON string of [lat, lng] waypoints
+  progressIndex Int    @default(0)
   createdAt   DateTime @default(now())
   
   incident    Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
-  team        Team     @relation(fields: [teamId], references: [id])
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
 }

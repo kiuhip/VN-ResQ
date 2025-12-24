@@ -29,19 +29,7 @@ export class DispatchService {
             where: { status: 'idle' }
         });
 
-        // 🚨 AUTO-SEED: Cập nhật seeding với năng lực (capabilities)
-        if (availableTeams.length === 0) {
-            console.log("No teams found. Seeding mock teams with capabilities...");
-            await prisma.team.createMany({
-                data: [
-                    { name: 'Đội Phản Ứng Nhanh (Hoàn Kiếm)', type: 'state', status: 'idle', latitude: 21.0285, longitude: 105.8542, capabilities: 'medical,rescue' } as any,
-                    { name: 'Đội Xuồng Máy Cứu Hộ (Sông Hồng)', type: 'state', status: 'idle', latitude: 21.0400, longitude: 105.8600, capabilities: 'boat,rescue,heavy_lifting' } as any,
-                    { name: 'Đội Tình Nguyện Tiếp Tế (Đống Đa)', type: 'private', status: 'idle', latitude: 21.0080, longitude: 105.8200, capabilities: 'food,medical' } as any,
-                    { name: 'Đội Cứu Hộ Đặc Nhiệm (Cầu Giấy)', type: 'state', status: 'idle', latitude: 21.0362, longitude: 105.7906, capabilities: 'boat,medical,rescue' } as any
-                ]
-            });
-            availableTeams = await prisma.team.findMany({ where: { status: 'idle' } });
-        }
+
 
         // 3. Tìm đội phù hợp nhất (Capability-Aware)
         let bestTeam = null;
@@ -84,7 +72,7 @@ export class DispatchService {
             }
 
             const totalScore = distanceFactor + capabilityScore;
-            console.log(`Team ${team.name}: Dist=${distance.toFixed(1)}km (Score ${distanceFactor.toFixed(1)}) | Caps=${capabilityScore} [${logReasons.join(', ')}] | Total=${totalScore.toFixed(1)}`);
+            console.log(`Team ${team.name}: Dist=${(distance ?? 0).toFixed(1)}km (Score ${(distanceFactor ?? 0).toFixed(1)}) | Caps=${capabilityScore} [${logReasons.join(', ')}] | Total=${(totalScore ?? 0).toFixed(1)}`);
 
             if (totalScore > bestScore) {
                 bestScore = totalScore;
@@ -96,12 +84,36 @@ export class DispatchService {
 
         // 4. Phân công
         const result = await prisma.$transaction(async (tx) => {
+            // 5. Fetch Route from OSRM
+            let routeData = null;
+            try {
+                const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${bestTeam.longitude},${bestTeam.latitude};${targetLng},${targetLat}?overview=full&geometries=geojson`;
+                console.log("🗺️ Fetching Route:", osrmUrl);
+                // Note: Need axios locally or fetch
+                const axios = require('axios');
+                const routeRes = await axios.get(osrmUrl);
+
+                if (routeRes.data.routes && routeRes.data.routes.length > 0) {
+                    const coordinates = routeRes.data.routes[0].geometry.coordinates; // [[lng, lat], ...]
+                    // OSRM returns [lng, lat], we need to store it. 
+                    // Swapping to [lat, lng] for easier use? No, keep as is, handle mostly in Sim.
+                    // Actually, Simulation expects [lat, lng] or we handle the swap there.
+                    // Let's store raw OSRM [lng, lat] for simplicity.
+                    routeData = JSON.stringify(coordinates);
+                    console.log(`✅ Route found: ${coordinates.length} waypoints`);
+                }
+            } catch (e: any) {
+                console.error("⚠️ OSRM Route Failed (Falling back to straight line):", e.message);
+            }
+
             const assignment = await tx.assignment.create({
                 data: {
                     incidentId: incident.id,
                     teamId: bestTeam.id,
-                    status: 'assigned'
-                }
+                    status: 'assigned',
+                    route: routeData,
+                    progressIndex: 0
+                } as any
             });
 
             await tx.team.update({
