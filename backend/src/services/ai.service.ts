@@ -1,6 +1,20 @@
 import { geminiModel, isMock } from '../integrations/gemini';
 import { z } from 'zod';
 import axios from 'axios';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegPath from 'ffmpeg-static';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { promisify } from 'util';
+
+if (ffmpegPath) {
+    ffmpeg.setFfmpegPath(ffmpegPath);
+}
+
+const writeFile = promisify(fs.writeFile);
+const readFile = promisify(fs.readFile);
+const unlink = promisify(fs.unlink);
 
 // Schema Validation
 const IncidentExtractionSchema = z.object({
@@ -17,6 +31,41 @@ const IncidentExtractionSchema = z.object({
 type IncidentExtraction = z.infer<typeof IncidentExtractionSchema>;
 
 export class AIService {
+
+    private async prepareAudioForFPT(inputBuffer: Buffer): Promise<Buffer> {
+        return new Promise(async (resolve, reject) => {
+            const tempInput = path.join(os.tmpdir(), `input_${Date.now()}.bin`);
+            const tempOutput = path.join(os.tmpdir(), `output_${Date.now()}.wav`);
+
+            try {
+                await writeFile(tempInput, inputBuffer);
+
+                ffmpeg(tempInput)
+                    .toFormat('wav')
+                    .audioChannels(1)
+                    .audioFrequency(16000)
+                    .on('error', (err) => {
+                        console.error('Audio conversion error:', err);
+                        reject(err);
+                    })
+                    .on('end', async () => {
+                        try {
+                            const convertedBuffer = await readFile(tempOutput);
+                            // Cleanup
+                            await unlink(tempInput);
+                            await unlink(tempOutput);
+                            resolve(convertedBuffer);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    })
+                    .save(tempOutput);
+
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
 
     async speechToTextFPT(audioBuffer: Buffer): Promise<string> {
         console.log("🎙️ FPT.AI ASR: Processing audio...");
@@ -123,8 +172,11 @@ export class AIService {
         console.log("🔊 Hotline: Analyzing audio message...");
 
         try {
+            // STEP 0: Convert audio to FPT requirements (WAV, 16kHz, mono)
+            const processedBuffer = await this.prepareAudioForFPT(audioBuffer);
+
             // STEP 1: Use FPT.AI for High Accuracy Vietnamese Speech-to-Text
-            const transcript = await this.speechToTextFPT(audioBuffer);
+            const transcript = await this.speechToTextFPT(processedBuffer);
 
             // STEP 2: Use Gemini to extract structured info from the transcript
             const extraction = await this.extractInfoFromText(transcript);
