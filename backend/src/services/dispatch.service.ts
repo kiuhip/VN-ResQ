@@ -34,6 +34,7 @@ export class DispatchService {
         // 3. Tìm đội phù hợp nhất (Capability-Aware)
         let bestTeam = null;
         let bestScore = -Infinity;
+        let bestDistance = 0;
 
         const targetLat = incident.latitude || 21.0285;
         const targetLng = incident.longitude || 105.8542;
@@ -77,6 +78,7 @@ export class DispatchService {
             if (totalScore > bestScore) {
                 bestScore = totalScore;
                 bestTeam = team;
+                bestDistance = distance;
             }
         }
 
@@ -130,7 +132,7 @@ export class DispatchService {
                 data: { status: 'assigned' }
             });
 
-            return { assignment, team: bestTeam, score: bestScore };
+            return { assignment, team: bestTeam, score: bestScore, distance: bestDistance };
         });
 
         return result;
