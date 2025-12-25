@@ -1,7 +1,8 @@
 import { geminiModel, isMock } from '../integrations/gemini';
 import { z } from 'zod';
+import axios from 'axios';
 
-// Schema Validation (giữ nguyên để tham khảo type)
+// Schema Validation
 const IncidentExtractionSchema = z.object({
     location_text: z.string(),
     searchable_address: z.string().optional(),
@@ -17,11 +18,36 @@ type IncidentExtraction = z.infer<typeof IncidentExtractionSchema>;
 
 export class AIService {
 
+    async speechToTextFPT(audioBuffer: Buffer): Promise<string> {
+        console.log("🎙️ FPT.AI ASR: Processing audio...");
+        try {
+            const apiKey = process.env.FPT_AI_KEY;
+            if (!apiKey) throw new Error("FPT_AI_KEY is missing in .env");
+
+            const response = await axios.post('https://api.fpt.ai/hmi/asr/general', audioBuffer, {
+                headers: {
+                    'api-key': apiKey,
+                    'Content-Type': 'application/octet-stream'
+                }
+            });
+
+            console.log("📦 FPT.AI Raw Output:", JSON.stringify(response.data));
+
+            if (response.data && response.data.hypotheses && response.data.hypotheses.length > 0) {
+                const transcript = response.data.hypotheses[0].utterance;
+                console.log("📝 FPT.AI Transcript:", transcript);
+                return transcript;
+            }
+
+            throw new Error("FPT.AI could not transcribe the audio");
+        } catch (error: any) {
+            console.error("❌ FPT.AI ASR Error:", error.message);
+            throw error;
+        }
+    }
+
     async extractInfoFromText(text: string): Promise<IncidentExtraction> {
         console.log("🤖 Gemini Processing:", text);
-
-        // REMOVED MOCK LOGIC for Real-World Accuracy
-        // if (isMock) { ... }
 
         try {
             const prompt = `Extract emergency details from this TEXT: "${text}"
@@ -56,7 +82,6 @@ export class AIService {
                 people_count: typeof raw.people_count === 'number' ? raw.people_count : 1,
                 urgency: raw.urgency || "medium",
                 description: raw.description || text,
-                // Do NOT trust AI coordinates unless specific, rely on Geocoding Service later
                 latitude: undefined,
                 longitude: undefined,
             } as any;
@@ -66,26 +91,14 @@ export class AIService {
 
             // Fallback: Smart Regex Extraction
             let extractedLocation = "Unknown";
-            const lowerText = text.toLowerCase();
+            const sent = text.replace(/[\n\r]/g, " ");
 
-            // Patterns: "tại ...", "ở ...", "số ...", "ngõ ..."
-            // We want to capture the phrase after these prepositions.
-            const sent = text.replace(/[\n\r]/g, " "); // flatten
-
-            // Try to match "ở [Address]" or "tại [Address]" until a punctuation
             const match = sent.match(/(?:tại|ở|địa chỉ|khu vực|số|ngõ)\s+([^,.;!?]+)/i);
 
             if (match) {
-                // match[0] is like "ở ngõ 48 phố tạ quang bửu"
-                // match[1] is "ngõ 48 phố tạ quang bửu"
-
-                // However, sometimes match[1] checks stop at space if not careful, but [^,.;!?]+ grabs until punctuation
                 extractedLocation = match[0].replace(/^(tại|ở|địa chỉ|khu vực)\s+/i, '').trim();
-
-                // If it's too short (e.g. "ở đâu"), ignore
                 if (extractedLocation.length < 3) extractedLocation = "Unknown";
             } else {
-                // Fallback for just "ngõ 48..." without "ở"
                 if (text.length < 100 && (text.includes("ngõ") || text.includes("phố") || text.includes("đường"))) {
                     extractedLocation = text;
                 }
@@ -107,55 +120,65 @@ export class AIService {
     }
 
     async analyzeAudio(audioBuffer: Buffer, mimeType: string): Promise<IncidentExtraction> {
-        console.log("🔊 Gemini Listening to Audio...");
+        console.log("🔊 Hotline: Analyzing audio message...");
 
         try {
-            const prompt = `
-            Listen to this emergency call (Vietnamese). 
-            1. Transcribe the speech to text.
-            2. Extract key details into JSON.
-            3. STRICTLY NO RANDOM COORDINATES.
-            
-            Return JSON:
-            {
-                "location_text": "...",
-                "incident_type": "...",
-                "people_count": ...,
-                "urgency": "...",
-                "description": "Full Transcript"
-            }
-            `;
+            // STEP 1: Use FPT.AI for High Accuracy Vietnamese Speech-to-Text
+            const transcript = await this.speechToTextFPT(audioBuffer);
 
-            // Convert Buffer to Base64 for Inline Data
-            const audioBase64 = audioBuffer.toString('base64');
+            // STEP 2: Use Gemini to extract structured info from the transcript
+            const extraction = await this.extractInfoFromText(transcript);
 
-            const result = await geminiModel.generateContent([
-                prompt,
-                {
-                    inlineData: {
-                        mimeType: mimeType,
-                        data: audioBase64
-                    }
-                }
-            ]);
-
-            const response = await result.response;
-            let textResponse = response.text();
-
-            // Clean JSON
-            textResponse = textResponse.replace(/^```json/g, '').replace(/^```/g, '').trim();
-            console.log("📦 Gemini Audio Analysis:", textResponse);
-
-            const raw = JSON.parse(textResponse);
             return {
-                ...raw,
-                latitude: undefined, // Force Geocoding Service to find real coords
-                longitude: undefined
+                ...extraction,
+                description: `[FPT.AI Transcription]: ${transcript}\n\n[Summary]: ${extraction.description}`
             };
 
-        } catch (error) {
-            console.error("❌ Gemini Audio Failed:", error);
-            throw new Error("AI Audio Processing Failed");
+        } catch (error: any) {
+            console.warn("⚠️ FPT.AI Failed, falling back to Gemini Multimodal...", error.message);
+
+            // FALLBACK: Use Gemini Multimodal directly
+            try {
+                const prompt = `
+                Listen to this emergency call (Vietnamese). 
+                1. Transcribe the speech to text.
+                2. Extract key details into JSON.
+                
+                Return JSON:
+                {
+                    "location_text": "...",
+                    "incident_type": "...",
+                    "people_count": ...,
+                    "urgency": "...",
+                    "description": "Full Transcript"
+                }
+                `;
+
+                const audioBase64 = audioBuffer.toString('base64');
+                const result = await geminiModel.generateContent([
+                    prompt,
+                    {
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: audioBase64
+                        }
+                    }
+                ]);
+
+                const response = await result.response;
+                let textResponse = response.text();
+                textResponse = textResponse.replace(/^```json/g, '').replace(/^```/g, '').trim();
+
+                const raw = JSON.parse(textResponse);
+                return {
+                    ...raw,
+                    latitude: undefined,
+                    longitude: undefined
+                };
+            } catch (fallbackError) {
+                console.error("❌ All AI Audio Processing Failed");
+                throw new Error("Unable to process audio report.");
+            }
         }
     }
 
