@@ -7,6 +7,38 @@ export const HotlinePanel = () => {
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [audioFile, setAudioFile] = useState<File | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            const chunks: BlobPart[] = [];
+
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
+                setAudioFile(file);
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            recorder.start();
+            setMediaRecorder(recorder);
+            setIsRecording(true);
+        } catch (err) {
+            console.error('Failed to start recording', err);
+            alert('Could not access microphone');
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            setIsRecording(false);
+        }
+    };
 
     const handleTranscribe = async () => {
         if (!audioFile) return;
@@ -15,18 +47,18 @@ export const HotlinePanel = () => {
         try {
             const formData = new FormData();
             formData.append('audio', audioFile);
-            
+
             const res = await axios.post('http://localhost:3000/api/hotline/transcribe-audio', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 
             // Populate the text area with the transcript
             if (res.data.transcription) {
-                 setDetails(prev => (prev ? prev + '\n\n' : '') + `[Transcript]: ${res.data.transcription}`);
+                setDetails(prev => (prev ? prev + '\n\n' : '') + `[Transcript]: ${res.data.transcription}`);
             }
             // We could also use other extraction data if we had fields for it, 
             // but simply putting it in the text area allows the operator to review/edit.
-            
+
             setAudioFile(null); // Clear file after transcription
         } catch (error) {
             alert('Transcription failed');
@@ -47,7 +79,7 @@ export const HotlinePanel = () => {
                 source: 'hotline',
                 text: details
             });
-           
+
             setStatus('success');
             setDetails('');
             setTimeout(() => setStatus('idle'), 3000);
@@ -60,8 +92,8 @@ export const HotlinePanel = () => {
 
     return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             {/* Status Header */}
-             <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg flex items-center justify-between">
+            {/* Status Header */}
+            <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <Phone size={18} className="text-red-400" />
@@ -83,40 +115,53 @@ export const HotlinePanel = () => {
                 <div className="space-y-2">
                     <label className="text-xs text-gray-400 font-semibold flex items-center justify-between">
                         <span className="flex items-center gap-1"><Edit3 size={12} /> Call Logs / Transcript / Audio</span>
-                        
+
                         {/* Audio Upload Control */}
                         <div className="flex items-center gap-2">
-                             {audioFile ? (
+                            {audioFile ? (
                                 <div className="flex items-center gap-2 bg-gray-800 px-2 py-1 rounded border border-gray-700">
                                     <span className="text-[10px] text-green-400 max-w-[100px] truncate">{audioFile.name}</span>
                                     <button onClick={() => setAudioFile(null)} type="button" className="text-red-400 hover:text-red-300">×</button>
                                 </div>
-                             ) : (
-                                <label className="cursor-pointer text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
-                                    <Mic size={10} /> Upload Audio
-                                    <input 
-                                        type="file" 
-                                        accept="audio/*" 
-                                        className="hidden" 
-                                        onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-                                    />
-                                </label>
-                             )}
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={isRecording ? stopRecording : startRecording}
+                                        className={`text-[10px] flex items-center gap-1 px-2 py-1 rounded border transition-all ${isRecording
+                                                ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse'
+                                                : 'bg-green-500/10 border-green-500/20 text-green-400 hover:text-green-300'
+                                            }`}
+                                    >
+                                        <Mic size={10} /> {isRecording ? 'Stop Recording' : 'Start Mic'}
+                                    </button>
 
-                             {/* Transcribe Button - Only shows if file is present */}
-                             {audioFile && (
-                                 <button 
-                                    type="button" 
+                                    <label className="cursor-pointer text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
+                                        <Edit3 size={10} /> Upload Audio
+                                        <input
+                                            type="file"
+                                            accept="audio/*"
+                                            className="hidden"
+                                            onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
+                                        />
+                                    </label>
+                                </div>
+                            )}
+
+                            {/* Transcribe Button - Only shows if file is present */}
+                            {audioFile && (
+                                <button
+                                    type="button"
                                     onClick={handleTranscribe}
                                     disabled={loading}
                                     className="text-[10px] bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded font-bold animate-in fade-in"
-                                 >
+                                >
                                     {loading ? '...' : 'Transcribe to Text'}
-                                 </button>
-                             )}
+                                </button>
+                            )}
                         </div>
                     </label>
-                    <textarea 
+                    <textarea
                         value={details}
                         onChange={(e) => setDetails(e.target.value)}
                         className="w-full h-32 bg-black/30 border border-gray-700 rounded-lg p-3 text-sm focus:ring-1 focus:ring-red-500 outline-none resize-none font-mono"
@@ -125,18 +170,18 @@ export const HotlinePanel = () => {
                 </div>
 
                 <div className="flex gap-2">
-                     <button 
+                    <button
                         type="button"
                         className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-bold text-gray-400 transition-colors"
                     >
                         Hold Call
                     </button>
-                    <button 
+                    <button
                         type="submit"
                         disabled={loading || !details.trim()}
                         className="flex-[2] py-3 bg-red-600 hover:bg-red-500 rounded-lg text-white text-xs font-bold shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                         {loading ? 'Processing...' : <><Send size={14} /> Create Incident Report</>}
+                        {loading ? 'Processing...' : <><Send size={14} /> Create Incident Report</>}
                     </button>
                 </div>
                 {status === 'success' && (
