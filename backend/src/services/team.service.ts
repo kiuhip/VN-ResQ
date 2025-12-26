@@ -16,7 +16,13 @@ export class TeamService {
                 ]
             });
         }
-        return prisma.team.findMany();
+        const teams = await prisma.team.findMany();
+        return teams.map(t => ({
+            ...t,
+            capabilities: typeof t.capabilities === 'string' 
+                ? (t.capabilities as string).split(',').map(s => s.trim())
+                : t.capabilities || []
+        }));
     }
 }
 

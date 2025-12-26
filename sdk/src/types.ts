@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface ResQClientOptions {
   baseUrl: string;
   token?: string;
@@ -38,3 +40,40 @@ export class ResQError extends Error implements ResQErrorDetails {
     }
   }
 }
+
+/* --- Team Schema --- */
+export const TeamSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(["idle", "en_route", "on_site", "busy"]),
+  latitude: z.number().nullable(),
+  longitude: z.number().nullable(),
+  capabilities: z.array(z.string()).optional(),
+});
+
+export type Team = z.infer<typeof TeamSchema>;
+
+/* --- Rescue Location Schema --- */
+export const RescueLocationSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  urgency: z.string().optional(),
+  incidentType: z.string().optional(),
+  createdAt: z.string().or(z.date()).optional(),
+});
+
+export type RescueLocation = z.infer<typeof RescueLocationSchema>;
+
+export const RescueLocationCreateInputSchema = z.object({
+  text: z.string().min(1, "Text is required"),
+  latitude: z.number(),
+  longitude: z.number(),
+  urgency: z.string().optional(),
+  incidentType: z.string().optional(),
+});
+
+export type RescueLocationCreateInput = z.infer<
+  typeof RescueLocationCreateInputSchema
+>;

@@ -8,7 +8,8 @@ import { teamRoutes } from "./routes/team.routes";
 import { volunteerRoutes } from "./routes/volunteer.routes";
 import { resourceRoutes } from "./routes/resource.routes";
 import { missionRoutes } from "./routes/mission.routes";
-
+import { locationRoutes } from "./routes/location.routes";
+import { mapRoutes } from "./routes/map.routes";
 
 const app = express();
 
@@ -25,7 +26,8 @@ app.use("/api/teams", teamRoutes);
 app.use("/api/volunteers", volunteerRoutes);
 app.use("/api/resources", resourceRoutes);
 app.use("/api/missions", missionRoutes);
-
+app.use("/api/locations", locationRoutes);
+app.use("/api/maps", mapRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
