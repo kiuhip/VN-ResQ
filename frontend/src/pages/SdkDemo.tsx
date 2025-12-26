@@ -15,7 +15,7 @@ const SdkDemo = () => {
 
   // Inputs
   const [incidentText, setIncidentText] = useState(
-    "Lũ lụt dâng cao tại khu vực X"
+    "Cháy lớn tại Đại học Bách Khoa Hà Nội.Nhiều sinh viên bị kẹt."
   );
   const [missionStatusId, setMissionStatusId] = useState("");
 

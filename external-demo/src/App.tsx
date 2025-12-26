@@ -73,16 +73,24 @@ function MapComponent({
     if (!markersRef.current) return;
     markersRef.current.clearLayers();
 
-    // 2. Teams (Green)
+    // 2. Teams (Green for Idle, Red for Busy)
     teams.forEach((team) => {
+      const isBusy = team.status === "busy";
+      const color = isBusy ? "#ef4444" : "#10b981"; // Red-500 : Emerald-500
+      const fillColor = isBusy ? "#7f1d1d" : "#064e3b"; // Red-900 : Emerald-900
+
       L.circleMarker([team.latitude, team.longitude], {
         radius: 7,
-        color: "#10b981",
-        fillColor: "#064e3b",
+        color: color,
+        fillColor: fillColor,
         fillOpacity: 0.9,
         weight: 2,
       })
-        .bindPopup(`<b>Rescue Team:</b> ${team.name}`)
+        .bindPopup(
+          `<b>Rescue Team:</b> ${
+            team.name
+          }<br/><b>Status:</b> ${team.status.toUpperCase()}`
+        )
         .addTo(markersRef.current!);
     });
 
@@ -293,8 +301,14 @@ function App() {
                   <span className="text-[11px] font-bold text-slate-300">
                     {t.name}
                   </span>
-                  <div className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase">
-                    Active
+                  <div
+                    className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                      t.status === "busy"
+                        ? "bg-red-500/10 text-red-500"
+                        : "bg-emerald-500/10 text-emerald-500"
+                    }`}
+                  >
+                    {t.status}
                   </div>
                 </div>
               ))}

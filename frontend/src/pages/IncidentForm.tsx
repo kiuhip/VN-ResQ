@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Phone, Users, Database, LayoutGrid, MapPin, Globe } from 'lucide-react';
 import { HotlinePanel } from '../components/intake/HotlinePanel';
 import { FanpagePanel } from '../components/intake/FanpagePanel';
@@ -54,13 +55,19 @@ export const IncidentForm = () => {
                         </button>
                     </nav>
 
-                    <div className="mt-auto pt-6 border-t border-gray-800">
-                        <a href="/dashboard" className="flex items-center gap-3 text-gray-500 hover:text-white transition-colors group">
+                    <div className="mt-auto pt-6 border-t border-gray-800 space-y-2">
+                        <Link to="/dashboard" className="flex items-center gap-3 text-gray-500 hover:text-white transition-colors group">
                             <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-gray-700">
                                 <LayoutGrid size={16} />
                             </div>
                             <span className="text-xs font-medium">Rescue Dashboard</span>
-                        </a>
+                        </Link>
+                         <Link to="/sdk_demo" className="flex items-center gap-3 text-gray-500 hover:text-white transition-colors group">
+                            <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-gray-700">
+                                <Database size={16} />
+                            </div>
+                            <span className="text-xs font-medium">SDK Demo (Visual)</span>
+                        </Link>
                     </div>
                 </div>
 

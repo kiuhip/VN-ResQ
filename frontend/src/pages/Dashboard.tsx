@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { Map } from "../components/Map";
 import axios from "axios";
 import {
@@ -9,6 +10,7 @@ import {
   Siren,
   CheckCircle,
   Truck,
+  Database,
 } from "lucide-react";
 
 // Mock types
@@ -314,8 +316,15 @@ export const Dashboard = () => {
           <h1 className="text-xl font-bold flex items-center gap-2">
             <LayoutDashboard className="text-blue-500" /> RESCUE COM.
           </h1>
-          <div className="flex gap-2 text-xs">
-            <span className="flex items-center gap-1 text-green-400">
+          <div className="flex gap-2 text-xs items-center">
+            <Link
+              to="/sdk_demo"
+              className="text-gray-400 hover:text-white transition-colors"
+              title="Go to SDK Demo"
+            >
+              <Database size={16} />
+            </Link>
+            <span className="flex items-center gap-1 text-green-400 border-l border-gray-700 pl-2">
               <CheckCircle size={12} /> Online
             </span>
           </div>

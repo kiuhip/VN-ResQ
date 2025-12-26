@@ -61,9 +61,7 @@ export const HotlinePanel = () => {
       // Populate the text area with the transcript
       if (res.data.transcription) {
         setDetails(
-          (prev) =>
-            (prev ? prev + "\n\n" : "") +
-            `[Transcript]: ${res.data.transcription}`
+          (prev) => (prev ? prev + "\n" : "") + res.data.transcription
         );
       }
       // We could also use other extraction data if we had fields for it,
