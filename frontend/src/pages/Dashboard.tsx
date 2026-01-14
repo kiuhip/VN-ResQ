@@ -71,9 +71,8 @@ const IncidentCard = ({
 
   return (
     <div
-      className={`relative p-4 rounded-lg border mb-3 backdrop-blur-sm ${
-        urgencyColors[incident.urgency] || "bg-gray-800"
-      }`}
+      className={`relative p-4 rounded-lg border mb-3 backdrop-blur-sm ${urgencyColors[incident.urgency] || "bg-gray-800"
+        }`}
     >
       <button
         onClick={(e) => {
@@ -119,10 +118,10 @@ const IncidentCard = ({
           <span>No GPS coordinates available</span>
         </div>
       ) : (
-        <div className="mt-2 text-xs text-green-400 flex items-center gap-1">
+        <div className="mt-2 text-xs text-green-400 flex items-center gap-1" title={`GPS: ${incident.latitude?.toFixed(6)}, ${incident.longitude?.toFixed(6)}`}>
           <MapPinned size={12} />
-          <span>
-            GPS: {incident.latitude.toFixed(4)}, {incident.longitude.toFixed(4)}
+          <span className="truncate max-w-[200px]">
+            Verified: {incident.locationText}
           </span>
         </div>
       )}
@@ -130,15 +129,14 @@ const IncidentCard = ({
       <div className="mt-3 flex gap-2">
         {assignedTeam ? (
           <div
-            className={`text-xs px-3 py-1.5 rounded-md flex items-center gap-1 border w-full ${
-              assignment?.status === "pending"
-                ? "bg-orange-500/20 text-orange-200 border-orange-500/50 animate-pulse"
-                : ["on-site", "on_site", "resolved"].includes(
-                    assignment?.status || ""
-                  )
+            className={`text-xs px-3 py-1.5 rounded-md flex items-center gap-1 border w-full ${assignment?.status === "pending"
+              ? "bg-orange-500/20 text-orange-200 border-orange-500/50 animate-pulse"
+              : ["on-site", "on_site", "resolved"].includes(
+                assignment?.status || ""
+              )
                 ? "bg-green-500/20 text-green-300 border-green-500/50 shadow-lg shadow-green-900/20"
                 : "bg-blue-900/50 text-blue-200 border-blue-500/30"
-            }`}
+              }`}
           >
             {assignment?.status === "pending" ? (
               <>
@@ -159,8 +157,8 @@ const IncidentCard = ({
                     ? "MISSION COMPLETE"
                     : assignment?.status === "on-site" ||
                       assignment?.status === "on_site"
-                    ? "ON SITE DEPLOYED"
-                    : `En Route: ${assignedTeam}`}
+                      ? "ON SITE DEPLOYED"
+                      : `En Route: ${assignedTeam}`}
                 </span>
               </>
             )}
@@ -202,7 +200,9 @@ export const Dashboard = () => {
           axios.get("http://localhost:3000/api/incidents"),
           axios.get("http://localhost:3000/api/teams"),
         ]);
-        const newIncidents: Incident[] = resIncidents.data;
+        const newIncidents: Incident[] = resIncidents.data.filter(
+          (i: Incident) => i.status !== "resolved"
+        );
 
         // Detect Re-dispatch
         newIncidents.forEach((newInc) => {
@@ -373,9 +373,8 @@ export const Dashboard = () => {
                   </div>
                 </div>
                 <div
-                  className={`w-2 h-2 rounded-full ${
-                    team.status === "busy" ? "bg-red-500" : "bg-green-500"
-                  }`}
+                  className={`w-2 h-2 rounded-full ${team.status === "busy" ? "bg-red-500" : "bg-green-500"
+                    }`}
                 ></div>
               </div>
             ))}

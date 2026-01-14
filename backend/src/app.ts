@@ -11,12 +11,16 @@ import { missionRoutes } from "./routes/mission.routes";
 import { locationRoutes } from "./routes/location.routes";
 import { mapRoutes } from "./routes/map.routes";
 
+import { authMiddleware } from "./middleware/auth.middleware";
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Auth
+app.use(authMiddleware);
+
 // Routes
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/hotline", hotlineRoutes);

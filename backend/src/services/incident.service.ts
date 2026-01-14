@@ -24,8 +24,10 @@ export class IncidentService {
       if (geo) {
         lat = geo.lat;
         lng = geo.lon;
-        // Don't overwrite locationText unless it's empty,
-        // because we usually want to keep the specific house number/ngõ found by AI
+        // Use the official geocoded address as the final location text for better display
+        if (geo.display_name) {
+          finalLocation = geo.display_name;
+        }
       } else {
         console.log("⚠️ Geocoding failed for:", addressToSearch);
       }
@@ -63,6 +65,7 @@ export class IncidentService {
 
   async getAll() {
     return prisma.incident.findMany({
+
       orderBy: { createdAt: "desc" },
       include: {
         assignments: {

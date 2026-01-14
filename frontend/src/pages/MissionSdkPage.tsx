@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ResQClient, MissionsSDK, MissionStatus } from "vn-resq-sdk";
+import { ResQClient, MissionsSDK } from "vn-resq-sdk";
 import {
   CheckCircle,
   XCircle,
@@ -10,6 +10,14 @@ import {
   Loader2,
 } from "lucide-react";
 
+// Mock Key Mapping
+const TEAM_KEYS: Record<string, string> = {
+  team_alpha: "TEAM_ALPHA_KEY",
+  team_bravo: "TEAM_BRAVO_KEY",
+  team_charlie: "TEAM_CHARLIE_KEY",
+  team_delta: "TEAM_DELTA_KEY",
+};
+
 const MissionSdkPage = () => {
   // Config
   const [teamId, setTeamId] = useState("team_alpha"); // Default Identity
@@ -19,16 +27,18 @@ const MissionSdkPage = () => {
   const [pendingAssignment, setPendingAssignment] = useState<any>(null);
   const [activeAssignment, setActiveAssignment] = useState<any>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [statusNote, setStatusNote] = useState("");
+  // Removed unused statusNote state
 
   // NOTE: In real app, these come from ENV or Auth Context
   const baseUrl = "http://localhost:3000/api";
-  const apiKey = "demo-key";
+
+  // Dynamic API Key based on selected team
+  const apiKey = TEAM_KEYS[teamId] || "INVALID_KEY";
 
   useEffect(() => {
     const c = new ResQClient({ baseUrl, apiKey });
     setMissionsSdk(new MissionsSDK(c));
-  }, []);
+  }, [apiKey]); // Re-init when team/key changes
 
   const addLog = (msg: string) =>
     setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev]);
@@ -195,16 +205,14 @@ const MissionSdkPage = () => {
                 setActiveAssignment(null);
                 setLogs([]);
               }}
-              className={`text-left p-3 rounded-lg border transition-all flex items-center gap-3 ${
-                teamId === t.id
-                  ? "bg-blue-900/30 border-blue-500 text-blue-200"
-                  : "bg-slate-800 border-transparent text-slate-400 hover:bg-slate-800/80 hover:border-slate-600"
-              }`}
+              className={`text-left p-3 rounded-lg border transition-all flex items-center gap-3 ${teamId === t.id
+                ? "bg-blue-900/30 border-blue-500 text-blue-200"
+                : "bg-slate-800 border-transparent text-slate-400 hover:bg-slate-800/80 hover:border-slate-600"
+                }`}
             >
               <div
-                className={`p-2 rounded-full ${
-                  teamId === t.id ? "bg-blue-600 text-white" : "bg-slate-700"
-                }`}
+                className={`p-2 rounded-full ${teamId === t.id ? "bg-blue-600 text-white" : "bg-slate-700"
+                  }`}
               >
                 <t.icon size={16} />
               </div>
@@ -258,11 +266,10 @@ const MissionSdkPage = () => {
                     Urgency
                   </label>
                   <p
-                    className={`text-xl font-bold ${
-                      pendingAssignment.incident?.urgency === "critical"
-                        ? "text-red-500"
-                        : "text-yellow-400"
-                    }`}
+                    className={`text-xl font-bold ${pendingAssignment.incident?.urgency === "critical"
+                      ? "text-red-500"
+                      : "text-yellow-400"
+                      }`}
                   >
                     {pendingAssignment.incident?.urgency?.toUpperCase()}
                   </p>
@@ -324,16 +331,16 @@ const MissionSdkPage = () => {
                 {["assigned", "en_route", "en-route"].includes(
                   activeAssignment.status
                 ) && (
-                  <div className="w-full bg-slate-700/50 text-blue-400 p-8 rounded-xl font-bold text-xl flex flex-col items-center justify-center gap-4 border border-blue-500/20 shadow-inner">
-                    <Loader2 size={48} className="animate-spin text-blue-500" />
-                    <div className="flex flex-col items-center">
-                      <span>EN ROUTE TO SCENE</span>
-                      <span className="text-xs font-normal text-slate-500 mt-1 uppercase tracking-widest">
-                        Auto-detecting arrival via GPS...
-                      </span>
+                    <div className="w-full bg-slate-700/50 text-blue-400 p-8 rounded-xl font-bold text-xl flex flex-col items-center justify-center gap-4 border border-blue-500/20 shadow-inner">
+                      <Loader2 size={48} className="animate-spin text-blue-500" />
+                      <div className="flex flex-col items-center">
+                        <span>EN ROUTE TO SCENE</span>
+                        <span className="text-xs font-normal text-slate-500 mt-1 uppercase tracking-widest">
+                          Auto-detecting arrival via GPS...
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {/* STAGE 2: On Site Operations */}
                 {["on_site", "on-site"].includes(activeAssignment.status) && (

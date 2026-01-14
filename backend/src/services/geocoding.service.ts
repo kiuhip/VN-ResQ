@@ -15,47 +15,68 @@ export class GeocodingService {
             return null;
         }
 
-        try {
-            console.log(`🌍 Geocoding Search: "${address}"`);
+        const tryGeocode = async (query: string): Promise<GeoPoint | null> => {
+            try {
+                const response = await axios.get(this.NOMINATIM_URL, {
+                    params: {
+                        q: query,
+                        format: 'json',
+                        limit: 1,
+                        addressdetails: 1,
+                        countrycodes: 'vn'
+                    },
+                    headers: { 'User-Agent': 'VN-ResQ-Disaster-Management/1.0' },
+                    timeout: 5000
+                });
 
-            // Cleaning address: Remove "Detected Location" prefix if present
-            let cleanAddress = address.replace(/^Detected Location\s*/i, '').trim();
-
-            // Append Hanoi/Vietnam if not present to increase accuracy for this project
-            if (!cleanAddress.toLowerCase().includes('vietnam')) {
-                cleanAddress += ', Vietnam';
-            }
-
-            const response = await axios.get(this.NOMINATIM_URL, {
-                params: {
-                    q: cleanAddress,
-                    format: 'json',
-                    limit: 1,
-                    addressdetails: 1,
-                    countrycodes: 'vn' // Limit search to Vietnam
-                },
-                headers: {
-                    'User-Agent': 'VN-ResQ-Disaster-Management/1.0'
+                if (response.data && response.data.length > 0) {
+                    const result = response.data[0];
+                    return {
+                        lat: parseFloat(result.lat),
+                        lon: parseFloat(result.lon),
+                        display_name: result.display_name
+                    };
                 }
-            });
-
-            if (response.data && response.data.length > 0) {
-                const result = response.data[0];
-                console.log(`✅ Found Coordinates: ${result.lat}, ${result.lon} (${result.display_name})`);
-                return {
-                    lat: parseFloat(result.lat),
-                    lon: parseFloat(result.lon),
-                    display_name: result.display_name
-                };
+            } catch (error) {
+                // Ignore transient errors in retrieval loop
             }
-
-            console.log(`❌ No coordinates found for: "${cleanAddress}"`);
             return null;
+        };
 
-        } catch (error) {
-            console.error("❌ Geocoding API Error:", error);
-            return null;
+        // 1. Clean up "Detected Location" and common prefixes
+        let cleanAddress = address
+            .replace(/^Detected Location\s*/i, '')
+            .replace(/^(tại|ở|địa chỉ|khu vực|vị trí)\s+/i, '') // Remove location prepositions
+            .trim();
+
+        // 2. Strategy List to try in order
+        const strategies = [];
+
+        // Strategy A: Input + "Hanoi" (Most specific for this project)
+        // Strip "số", "nhà số" for search engine friendliness
+        const streetOnly = cleanAddress.replace(/^(số|nhà số)\s*/i, '').trim();
+        strategies.push(`${streetOnly}, Hanoi`);
+
+        // Strategy B: Original Clean Input + "Hanoi" (If user typed "So 20..." explicitly)
+        if (streetOnly !== cleanAddress) {
+            strategies.push(`${cleanAddress}, Hanoi`);
         }
+
+        // Strategy C: Street Only + "Vietnam" (Fallback)
+        strategies.push(`${streetOnly}, Vietnam`);
+
+        console.log(`🌍 Geocoding Strategies for "${address}":`, strategies);
+
+        for (const query of strategies) {
+            const result = await tryGeocode(query);
+            if (result) {
+                console.log(`✅ Found Coordinates via "${query}": ${result.lat}, ${result.lon}`);
+                return result;
+            }
+        }
+
+        console.log(`❌ No coordinates found for: "${address}" after ${strategies.length} attempts.`);
+        return null;
     }
 }
 
